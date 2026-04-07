@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>Roulette - Lehrer Dashboard</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; background-color: #2c3e50; color: white; }
+        #wheel { font-size: 80px; margin: 20px; padding: 40px; background: #27ae60; border-radius: 50%; display: inline-block; width: 100px; height: 100px; line-height: 100px; border: 10px solid gold;}
+        button { padding: 15px 30px; font-size: 24px; cursor: pointer; background: #e74c3c; color: white; border: none; border-radius: 5px; }
+        button:hover { background: #c0392b; }
+        table { width: 80%; margin: 30px auto; border-collapse: collapse; background: #34495e; }
+        th, td { padding: 15px; border: 1px solid #7f8c8d; }
+        .win { background-color: rgba(46, 204, 113, 0.5); }
+        .lose { background-color: rgba(231, 76, 60, 0.5); }
+    </style>
+</head>
+<body>
+    <h1>Zufallsexperiment: Roulette</h1>
+    <p>Ergebnismenge &Omega; = {0, 1, 2, ..., 36}</p>
+    
+    <div id="wheel">?</div>
+    <br>
+    <button onclick="spin()">Rad drehen!</button>
+
+    <h2>Klasse (Ereignisse)</h2>
+    <table>
+        <thead>
+            <tr>
+                <th>Schüler</th>
+                <th>Ereignis (Tipp)</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="student-list"></tbody>
+    </table>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        const socket = io();
+        let currentResult = null;
+
+        const redNumbers = [1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36];
+
+        function spin() {
+            document.getElementById('wheel').innerText = "🔄";
+            socket.emit('spin_wheel');
+        }
+
+        socket.on('spin_result', (result) => {
+            currentResult = result;
+            let color = redNumbers.includes(result) ? "Rot" : (result === 0 ? "Grün" : "Schwarz");
+            document.getElementById('wheel').innerText = result;
+            document.getElementById('wheel').style.background = result === 0 ? "#27ae60" : (color === "Rot" ? "#e74c3c" : "#2c3e50");
+        });
+
+        socket.on('update_teacher', (students) => {
+            const tbody = document.getElementById('student-list');
+            tbody.innerHTML = '';
+            for (let id in students) {
+                let s = students[id];
+                let row = document.createElement('tr');
+                let status = "Wartet...";
+                let rowClass = "";
+
+                if (currentResult !== null && s.bet !== null) {
+                    let won = false;
+                    if (s.betType === 'number' && parseInt(s.bet) === currentResult) won = true;
+                    if (s.betType === 'color') {
+                        let isRed = redNumbers.includes(currentResult);
+                        if (s.bet === 'red' && isRed) won = true;
+                        if (s.bet === 'black' && !isRed && currentResult !== 0) won = true;
+                    }
+                    if (s.betType === 'parity' && currentResult !== 0) {
+                        if (s.bet === 'even' && currentResult % 2 === 0) won = true;
+                        if (s.bet === 'odd' && currentResult % 2 !== 0) won = true;
+                    }
+
+                    status = won ? "Gewonnen! 🎉" : "Verloren ❌";
+                    rowClass = won ? "win" : "lose";
+                }
+
+                row.className = rowClass;
+                row.innerHTML = `<td>${s.name}</td><td>${s.bet || '-'}</td><td>${status}</td>`;
+                tbody.appendChild(row);
+            }
+        });
+
+        socket.on('new_round', () => {
+            currentResult = null;
+            document.getElementById('wheel').innerText = "?";
+            document.getElementById('wheel').style.background = "#27ae60";
+        });
+    </script>
+</body>
+</html>
