@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Roulette – Zufallsexperiment</title>
+    <title>Roulette</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -21,7 +21,7 @@
             padding: 24px;
         }
 
-        h1 { font-size: 2rem; color: #f1c40f; }
+        h1 { font-size: 2.5rem; color: #f1c40f; }
         p  { color: #bdc3c7; font-size: 1.1rem; }
 
         .wheel-container {
@@ -68,9 +68,8 @@
     </style>
 </head>
 <body>
-    <h1>Zufallsexperiment: Roulette</h1>
-    <p>Ergebnismenge &Omega; = {0, 1, 2, ..., 12}</p>
-
+    <h1>Roulette</h1>
+    <br>
     <div class="wheel-container">
         <div id="pointer">&#9660;</div>
         <canvas id="wheelCanvas" width="440" height="440"></canvas>
@@ -133,7 +132,7 @@
                 ctx.stroke();
 
                 // Number label
-                const fontSize = Math.max(9, Math.floor(outerR * SLOT_ANGLE * 0.55));
+                const fontSize = Math.max(9, Math.floor(outerR * SLOT_ANGLE * 0.48));
                 ctx.save();
                 ctx.translate(cx, cy);
                 ctx.rotate(centerA);
@@ -141,7 +140,7 @@
                 ctx.textBaseline = 'middle';
                 ctx.fillStyle    = 'white';
                 ctx.font         = `bold ${fontSize}px sans-serif`;
-                ctx.fillText(String(num), outerR - 22, 0);
+                ctx.fillText(String(num), outerR - 35, 0);
                 ctx.restore();
             }
 
