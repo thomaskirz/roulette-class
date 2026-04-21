@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roulette – Zufallsexperiment</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            background: #1a2634;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            padding: 24px;
+        }
+
+        h1 { font-size: 2rem; color: #f1c40f; }
+        p  { color: #bdc3c7; font-size: 1.1rem; }
+
+        .wheel-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        #pointer {
+            position: absolute;
+            top: -18px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 32px;
+            color: #f1c40f;
+            line-height: 1;
+            text-shadow: 0 0 8px rgba(241,196,15,0.8);
+            z-index: 10;
+        }
+
+        canvas {
+            display: block;
+            max-width: 100%;
+        }
+
+        #result-display {
+            min-height: 3rem;
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+
+        #spin-btn {
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            transition: background 0.2s, transform 0.1s;
+        }
+        #spin-btn:hover:not(:disabled)  { background: #c0392b; transform: scale(1.03); }
+        #spin-btn:active:not(:disabled) { transform: scale(0.98); }
+        #spin-btn:disabled              { background: #7f8c8d; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <h1>Zufallsexperiment: Roulette</h1>
+    <p>Ergebnismenge &Omega; = {0, 1, 2, ..., 36}</p>
+
+    <div class="wheel-container">
+        <div id="pointer">&#9660;</div>
+        <canvas id="wheelCanvas" width="440" height="440"></canvas>
+    </div>
+
+    <div id="result-display"></div>
+
+    <button id="spin-btn" onclick="spin()">Rad drehen!</button>
+
+    <script>
+        // European roulette wheel order (clockwise, starting at 12 o'clock)
+        const WHEEL_ORDER = [
+            0, 32, 15, 19, 4, 21, 2, 25, 17, 34, 6, 27, 13,
+            36, 11, 30, 8, 23, 10, 5, 24, 16, 33, 1, 20, 14,
+            31, 9, 22, 18, 29, 7, 28, 12, 35, 3, 26
+        ];
+        const RED_NUMBERS = new Set([1,3,5,7,9,12,14,16,18,19,21,23,25,27,30,32,34,36]);
+        const NUM_SLOTS   = WHEEL_ORDER.length; // 37
+        const SLOT_ANGLE  = (2 * Math.PI) / NUM_SLOTS;
+
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx    = canvas.getContext('2d');
+        const R      = canvas.width / 2; // 220
+
+        let currentAngle = 0; // angle such that WHEEL_ORDER[0] (=0) starts at 12 o'clock
+        let spinning     = false;
+
+        function getColor(num) {
+            if (num === 0)               return '#27ae60';
+            if (RED_NUMBERS.has(num))    return '#c0392b';
+            return '#1c1c1c';
+        }
+
+        function drawWheel(angle) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const cx = R, cy = R;
+            const outerR = R - 4;
+
+            // Gold outer ring
+            ctx.beginPath();
+            ctx.arc(cx, cy, outerR + 3, 0, 2 * Math.PI);
+            ctx.fillStyle = '#d4af37';
+            ctx.fill();
+
+            // Draw each number sector
+            for (let i = 0; i < NUM_SLOTS; i++) {
+                const num     = WHEEL_ORDER[i];
+                // Sector centre angle: index 0 sits at -π/2 (12 o'clock) when angle=0
+                const centerA = angle + i * SLOT_ANGLE - Math.PI / 2;
+                const startA  = centerA - SLOT_ANGLE / 2;
+                const endA    = centerA + SLOT_ANGLE / 2;
+
+                // Sector fill
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.arc(cx, cy, outerR, startA, endA);
+                ctx.closePath();
+                ctx.fillStyle = getColor(num);
+                ctx.fill();
+
+                // Sector border
+                ctx.strokeStyle = '#d4af37';
+                ctx.lineWidth   = 1;
+                ctx.stroke();
+
+                // Number label
+                const fontSize = Math.max(9, Math.floor(outerR * SLOT_ANGLE * 0.55));
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(centerA);
+                ctx.textAlign    = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle    = 'white';
+                ctx.font         = `bold ${fontSize}px sans-serif`;
+                ctx.fillText(String(num), outerR - 22, 0);
+                ctx.restore();
+            }
+
+            // Centre cap
+            ctx.beginPath();
+            ctx.arc(cx, cy, 28, 0, 2 * Math.PI);
+            ctx.fillStyle   = '#d4af37';
+            ctx.fill();
+            ctx.strokeStyle = '#a07800';
+            ctx.lineWidth   = 2;
+            ctx.stroke();
+        }
+
+        // Ease-out cubic: fast start, gradual stop
+        function easeOut(t) {
+            return 1 - Math.pow(1 - t, 3);
+        }
+
+        function spin() {
+            if (spinning) return;
+            spinning = true;
+            document.getElementById('spin-btn').disabled = true;
+            document.getElementById('result-display').textContent = '';
+
+            const result      = Math.floor(Math.random() * NUM_SLOTS);
+            const resultIndex = WHEEL_ORDER.indexOf(result);
+
+            // Target angle: resultIndex sector at 12 o'clock
+            // Condition: angle + resultIndex * SLOT_ANGLE - π/2 ≡ -π/2  (mod 2π)
+            //        => angle ≡ -resultIndex * SLOT_ANGLE            (mod 2π)
+            const targetMod  = ((-resultIndex * SLOT_ANGLE) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+            const currentMod = (currentAngle % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+            let   delta      = targetMod - currentMod;
+            if (delta < 0) delta += 2 * Math.PI;
+
+            // Add 6–9 full extra rotations for a convincing spin
+            const extraRotations  = (6 + Math.floor(Math.random() * 4)) * 2 * Math.PI;
+            const totalRotation   = extraRotations + delta;
+            const startAngle      = currentAngle;
+            const duration        = 4000 + Math.random() * 2000; // 4–6 s
+            const startTime       = performance.now();
+
+            function animate(now) {
+                const elapsed = now - startTime;
+                const t       = Math.min(elapsed / duration, 1);
+                currentAngle  = startAngle + totalRotation * easeOut(t);
+                drawWheel(currentAngle);
+
+                if (t < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    currentAngle = startAngle + totalRotation;
+                    spinning     = false;
+                    document.getElementById('spin-btn').disabled = false;
+                    showResult(result);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        function showResult(result) {
+            const color     = result === 0 ? '#27ae60' : (RED_NUMBERS.has(result) ? '#e74c3c' : '#ecf0f1');
+            const colorName = result === 0 ? 'Grün'   : (RED_NUMBERS.has(result) ? 'Rot'     : 'Schwarz');
+            document.getElementById('result-display').innerHTML =
+                `Ergebnis: <span style="color:${color}; font-size:2.5rem;">${result}</span>` +
+                ` <span style="color:#bdc3c7;">(${colorName})</span>`;
+        }
+
+        // Initial render
+        drawWheel(currentAngle);
+    </script>
+</body>
+</html>
