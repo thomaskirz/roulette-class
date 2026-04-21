@@ -31,8 +31,8 @@ io.on('connection', (socket) => {
 
     // Teacher spins the wheel
     socket.on('spin_wheel', () => {
-        // Ergebnis (Outcome): Random number between 0 and 36
-        const result = Math.floor(Math.random() * 37); 
+        // Ergebnis (Outcome): Random number between 0 and 12
+        const result = Math.floor(Math.random() * 13); 
         
         // Broadcast the result to everyone
         io.emit('spin_result', result);
