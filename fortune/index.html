@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Roulette</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            background: #1a2634;
+            color: white;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            padding: 24px;
+        }
+
+        .wheels-wrapper {
+            display: flex;
+            gap: 40px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        h1 { font-size: 2.5rem; color: #f1c40f; }
+        p  { color: #bdc3c7; font-size: 1.1rem; }
+
+        .wheel-container {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 35px;
+        }
+
+        .pointer {
+            position: absolute;
+            top: -18px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 32px;
+            color: #f1c40f;
+            line-height: 1;
+            text-shadow: 0 0 8px rgba(241,196,15,0.8);
+            z-index: 10;
+        }
+
+        canvas {
+            display: block;
+            max-width: 100%;
+        }
+
+        .result-display {
+            min-height: 3rem;
+            font-size: 1.8rem;
+            font-weight: bold;
+        }
+
+        .spin-btn {
+            padding: 15px 40px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        .spin-n-times-btn{
+            background: #27ae60;
+        }
+
+        .results-display-txt {
+            font-family: monospace;
+            display: inline-block;
+            text-align: left;
+            font-size: 1.4rem;
+            margin-top: 35px;
+        }
+
+        #spin-btn:hover:not(:disabled)  { background: #c0392b; transform: scale(1.03); }
+        #spin-btn:active:not(:disabled) { transform: scale(0.98); }
+        #spin-btn:disabled              { background: #7f8c8d; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+    <div class="wheels-wrapper">
+        <div class="wheel-column">
+            <h1>Einmal drehen</h1>
+            <br><br><br>
+            <div class="wheel-container">
+                <div class="pointer">&#9660;</div>
+                <canvas id="wheelCanvas1" width="360" height="360"></canvas>
+            </div>
+            <div></div>
+            <button id="spin-btn1" class="spin-btn" onclick="spin(1)">Rad drehen!</button>
+            <button id="spin_n_times_button1" class="spin-btn spin-n-times-btn" onclick="spinNTimes(100)">100x drehen</button>
+            <div id="result-display1" class="results-display"></div>
+        </div>
+
+        <div class="wheel-column">
+            <h1>Zweimal drehen</h1>
+            <br><br><br>
+            <div class="wheel-container">
+                <div class="pointer">&#9660;</div>
+                <canvas id="wheelCanvas2" width="360" height="360"></canvas>
+            </div>
+            <div></div>
+            <button id="spin-btn2" class="spin-btn" onclick="spin(2)">Rad drehen!</button>
+            <button id="spin_n_times_button2" class="spin-btn spin-n-times-btn" onclick="spinNTimesTwice(100)">100x drehen</button>
+            <div id="result-display2" class="results-display"></div>
+        </div>
+    </div>
+
+    <script>
+        const WHEEL_ORDER = [1, 2, 3, 4];
+        const NUM_SLOTS   = WHEEL_ORDER.length; // 4
+        const SLOT_ANGLE  = (2 * Math.PI) / NUM_SLOTS;
+
+        const canvas1 = document.getElementById('wheelCanvas1');
+        const canvas2 = document.getElementById('wheelCanvas2');
+        const ctx1     = canvas1.getContext('2d');
+        const ctx2     = canvas2.getContext('2d');
+        const R       = canvas1.width / 2; // 220
+
+        let currentAngle = 0; // angle such that WHEEL_ORDER[0] (=0) starts at 12 o'clock
+        let spinning     = false;
+
+        function getColor(num) {
+            if (num === 1) return '#27ae60';
+            if (num === 2) return '#c0392b';
+            if (num === 3) return '#325ddc'
+            if (num === 4) return '#d6ca2d'
+            return '#1c1c1c';
+        }
+
+        function drawWheel(angle, canvas, ctx) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const cx = R, cy = R;
+            const outerR = R - 4;
+
+            // Gold outer ring
+            ctx.beginPath();
+            ctx.arc(cx, cy, outerR + 3, 0, 2 * Math.PI);
+            ctx.fillStyle = '#d4af37';
+            ctx.fill();
+
+            // Draw each number sector
+            for (let i = 0; i < NUM_SLOTS; i++) {
+                const num     = WHEEL_ORDER[i];
+                // Sector centre angle: index 0 sits at -π/2 (12 o'clock) when angle=0
+                const centerA = angle + i * SLOT_ANGLE - Math.PI / 2;
+                const startA  = centerA - SLOT_ANGLE / 2;
+                const endA    = centerA + SLOT_ANGLE / 2;
+
+                // Sector fill
+                ctx.beginPath();
+                ctx.moveTo(cx, cy);
+                ctx.arc(cx, cy, outerR, startA, endA);
+                ctx.closePath();
+                ctx.fillStyle = getColor(num);
+                ctx.fill();
+
+                // Sector border
+                ctx.strokeStyle = '#d4af37';
+                ctx.lineWidth   = 1;
+                ctx.stroke();
+
+                // Number label
+                const fontSize = Math.max(9, Math.floor(outerR * SLOT_ANGLE * 0.3));
+                ctx.save();
+                ctx.translate(cx, cy);
+                ctx.rotate(centerA);
+                ctx.textAlign    = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle    = 'white';
+                ctx.font         = `bold ${fontSize}px sans-serif`;
+                ctx.fillText(String(num), outerR - 50, 0);
+                ctx.restore();
+            }
+
+            // Centre cap
+            ctx.beginPath();
+            ctx.arc(cx, cy, 28, 0, 2 * Math.PI);
+            ctx.fillStyle   = '#d4af37';
+            ctx.fill();
+            ctx.strokeStyle = '#a07800';
+            ctx.lineWidth   = 2;
+            ctx.stroke();
+        }
+
+        // Ease-out cubic: fast start, gradual stop
+        function easeOut(t) {
+            return 1 - Math.pow(1 - t, 3);
+        }
+
+        function spin(wheelNumber) {
+            if (spinning) return;
+            spinning = true;
+            const spinButton = document.getElementById(`spin-btn${wheelNumber}`);
+            const resultDisplay = document.getElementById(`result-display${wheelNumber}`);
+
+            spinButton.disabled = true;
+            resultDisplay.textContent = '';
+
+            const result      = WHEEL_ORDER[Math.floor(Math.random() * NUM_SLOTS)];
+            const resultIndex = WHEEL_ORDER.indexOf(result);
+
+            // Target angle: resultIndex sector at 12 o'clock
+            // Condition: angle + resultIndex * SLOT_ANGLE - π/2 ≡ -π/2  (mod 2π)
+            //        => angle ≡ -resultIndex * SLOT_ANGLE            (mod 2π)
+            const targetMod  = ((-resultIndex * SLOT_ANGLE) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+            const currentMod = (currentAngle % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+            let   delta      = targetMod - currentMod;
+            if (delta < 0) delta += 2 * Math.PI;
+
+            // Add 6–9 full extra rotations for a convincing spin
+            const extraRotations  = (6 + Math.floor(Math.random() * 4)) * 2 * Math.PI;
+            const totalRotation   = extraRotations + delta;
+            const startAngle      = currentAngle;
+            const duration        = 1000 + Math.random() * 2000; // 4–6 s
+            const startTime       = performance.now();
+
+            function animate(now) {
+                const elapsed = now - startTime;
+                const t       = Math.min(elapsed / duration, 1);
+                currentAngle  = startAngle + totalRotation * easeOut(t);
+                canvas = wheelNumber === 1 ? canvas1 : canvas2;
+                ctx = wheelNumber === 1 ? ctx1 : ctx2;
+                drawWheel(currentAngle, canvas, ctx);
+
+                if (t < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    currentAngle = startAngle + totalRotation;
+                    spinning     = false;
+                    spinButton.disabled = false;
+                    showResult(result, wheelNumber);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        function spinNTimes(n) {
+            if (spinning) return;
+            spinning = true;
+
+            const wheelNumber = 1;
+
+            const result      = WHEEL_ORDER[Math.floor(Math.random() * NUM_SLOTS)];
+            const resultIndex = WHEEL_ORDER.indexOf(result);
+
+            document.getElementById('spin_n_times_button1').disabled = true;
+            document.getElementById('result-display1').textContent = '';
+
+            const targetMod  = ((-resultIndex * SLOT_ANGLE) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+            const currentMod = (currentAngle % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+            let   delta      = targetMod - currentMod;
+            if (delta < 0) delta += 2 * Math.PI;
+
+            // Add 6–9 full extra rotations for a convincing spin
+            const extraRotations  = (6 + Math.floor(Math.random() * 4)) * 2 * Math.PI;
+            const totalRotation   = extraRotations + delta;
+            const startAngle      = currentAngle;
+            const duration        = 1000 + Math.random() * 2000; // 4–6 s
+            const startTime       = performance.now();
+
+            function animate(now) {
+                const elapsed = now - startTime;
+                const t       = Math.min(elapsed / duration, 1);
+                currentAngle  = startAngle + totalRotation * easeOut(t);
+                canvas = wheelNumber === 1 ? canvas1 : canvas2;
+                ctx = wheelNumber === 1 ? ctx1 : ctx2;
+                drawWheel(currentAngle, canvas, ctx);
+
+                if (t < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    currentAngle = startAngle + totalRotation;
+                    spinning     = false;
+                }
+            }
+            requestAnimationFrame(animate);
+
+            let results = [];
+            for (let i = 0; i < n; i++) {
+                results.push(WHEEL_ORDER[Math.floor(Math.random() * NUM_SLOTS)]);
+            }
+            showResults(results, 1);
+            spinning = false;
+            document.getElementById('spin_n_times_button1').disabled = false;
+        }
+
+        function spinNTimesTwice(n) {
+            if (spinning) return;
+            spinning = true;
+
+
+            const wheelNumber = 2;
+
+            const result      = WHEEL_ORDER[Math.floor(Math.random() * NUM_SLOTS)];
+            const resultIndex = WHEEL_ORDER.indexOf(result);
+
+
+            const targetMod  = ((-resultIndex * SLOT_ANGLE) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+            const currentMod = (currentAngle % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+            let   delta      = targetMod - currentMod;
+            if (delta < 0) delta += 2 * Math.PI;
+
+            // Add 6–9 full extra rotations for a convincing spin
+            const extraRotations  = (6 + Math.floor(Math.random() * 4)) * 2 * Math.PI;
+            const totalRotation   = extraRotations + delta;
+            const startAngle      = currentAngle;
+            const duration        = 1000 + Math.random() * 2000; // 4–6 s
+            const startTime       = performance.now();
+
+            function animate(now) {
+                const elapsed = now - startTime;
+                const t       = Math.min(elapsed / duration, 1);
+                currentAngle  = startAngle + totalRotation * easeOut(t);
+                canvas = wheelNumber === 1 ? canvas1 : canvas2;
+                ctx = wheelNumber === 1 ? ctx1 : ctx2;
+                drawWheel(currentAngle, canvas, ctx);
+
+                if (t < 1) {
+                    requestAnimationFrame(animate);
+                } else {
+                    currentAngle = startAngle + totalRotation;
+                    spinning     = false;
+                }
+            }
+            requestAnimationFrame(animate);
+
+            document.getElementById('spin_n_times_button2').disabled = true;
+            document.getElementById('result-display2').textContent = '';
+
+            let results = [];
+            for (let i = 0; i < n; i++) {
+                const res1 = WHEEL_ORDER[Math.floor(Math.random() * NUM_SLOTS)];
+                const res2 = WHEEL_ORDER[Math.floor(Math.random() * NUM_SLOTS)];
+                results.push(res1 + res2);
+            }
+            showResults(results, 2);
+            spinning = false;
+            document.getElementById('spin_n_times_button2').disabled = false;
+        }
+
+        function showResult(result, wheelNumber) {
+            document.getElementById(`result-display${wheelNumber}`).innerHTML =
+                `Ergebnis: <span style="font-size:2.5rem;">${result}</span>`;
+        }
+
+        function showResults(results, wheelNumber) {
+            // get value counts
+            const counts = {};
+            results.forEach(num => counts[num] = (counts[num] || 0) + 1);
+            const sortedCounts = Object.entries(counts).sort();
+            const resultStr = sortedCounts.map(([num, count]) => {
+                const percent = ((count / results.length) * 100).toFixed(0);
+                const paddedCount = String(count).padStart(2, '\u00A0');
+                const paddedPercent = String(percent).padStart(2, '\u00A0');
+                return `${num}: ${paddedCount} (${paddedPercent} %)`;
+            }).join('<br>');
+            document.getElementById(`result-display${wheelNumber}`).innerHTML = `<div class="results-display-txt">Ergebnisse:<br>${resultStr}</div>`;
+        }
+
+        // Initial render
+        drawWheel(currentAngle, canvas1, ctx1);
+        drawWheel(currentAngle, canvas2, ctx2);
+    </script>
+</body>
+</html>
